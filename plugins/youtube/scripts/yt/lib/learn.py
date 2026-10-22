@@ -191,7 +191,8 @@ FORBIDDEN_TARGETS = ("hooks/", "scripts/yt/bin/", ".claude-plugin/", "scripts/yt
                      "scripts/yt/lib/learn.py", "scripts/yt/lib/thumb_learn.py", "scripts/yt/lib/ytcore.py",
                      "scripts/yt/lib/ytdb.py", "scripts/yt/lib/ytauth.py", "scripts/yt/lib/auth.py",
                      "scripts/yt/lib/config.py", "scripts/yt/lib/collect.py", "agents/thumb-cold-reader.md",
-                     "commands/learn.md", "docs/yt/knowledge/13-learning-loop.md", "docs/yt/channels/")
+                     "commands/learn.md", "docs/yt/knowledge/13-learning-loop.md", "docs/yt/channels/",
+                     ".codex-plugin/", "codex/", "scripts/codex/")   # versione Codex: generata o con hook congelati
 HARD_SECTIONS: dict[str, list[str]] = {
     "agents/producer.md": [r"Regole\s+—\s+non negoziabili", r"^4\.1 I gate", r"Passo 5\s+—\s+Impara"],
     "commands/producer.md": [r"Passo 5\s+—\s+Proposte"],

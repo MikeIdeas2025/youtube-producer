@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer"
+  short_description: "Strategia, montaggio, Shorts e thumbnail per YouTube"
+  default_prompt: "Usa $youtube:producer per montare l'episodio registrato del mio canale."
+policy:
+  allow_implicit_invocation: true

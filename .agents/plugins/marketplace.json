@@ -1,0 +1,20 @@
+{
+  "name": "youtube-producer",
+  "interface": {
+    "displayName": "YouTube Producer"
+  },
+  "plugins": [
+    {
+      "name": "youtube",
+      "source": {
+        "source": "local",
+        "path": "./plugins/youtube"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

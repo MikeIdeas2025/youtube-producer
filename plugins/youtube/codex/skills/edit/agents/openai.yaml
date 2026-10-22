@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Edit"
+  short_description: "Montaggio long-form con gate G1, sottotitoli e FCPXML"
+  default_prompt: "Usa $youtube:edit per montare l'episodio registrato fino al gate G1."
+policy:
+  allow_implicit_invocation: false

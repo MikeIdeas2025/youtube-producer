@@ -1,6 +1,6 @@
 # YouTube Producer — Design doc
 
-**Versione**: 2026-10-13 · **Stato**: in uso come plugin Claude Code `youtube@youtube-producer`
+**Versione**: 2026-10-22 · **Stato**: in uso come plugin Claude Code `youtube@youtube-producer`; dal 2026-10-22 anche come plugin Codex dalla stessa repo (§16)
 **Ambito**: architettura, componenti, flusso dei dati, gate, apprendimento, sicurezza e licenze del plugin. Il metodo (come si fa una cosa bene) sta nel knowledge pack (`knowledge/01…13`); qui ci sono i contratti e i principi che lo tengono insieme. Dove questo documento e il `--help` di un comando del toolkit non coincidono, vince il `--help` (§8.3-bis).
 
 ## 1. Problema
@@ -33,15 +33,20 @@ Il lavoro deve girare su un Mac senza un NLE professionale obbligatorio: ffmpeg,
 | 14 | **Thumbnail v2** (`knowledge/07-thumbnails.md` §0): un telaio di serie (`duo` di default, `ritratto` per un solo volto) al posto della rotazione dei layout; gancio di 3–6 parole che è una frase completa; tetto d'ingrandimento 2,0× della risoluzione effettiva misurato a 1280 px con controllo del dettaglio nel file servito da 720 px; scala di policy sui pixel delle persone (livelli 0–2 e 2b ammessi, 3–4 non usati, 5 vietato); camera fissa stretta sull'ospite al posto della sessione foto; MediaPipe locale per le espressioni; lettore a freddo; pre-test umano per le variabili singole e A/B nativo come controllo di sicurezza | rotazione di 2–3 layout; tetto sul master 4K; contorno di default | evidenza misurata su set di riferimento pubblici (`07` §3) |
 | 15 | **Grade monocromatico come opzione** (livello 2b): una sola curva su ogni pixel di persone e plate, controllata con la curva unica e i landmark invariati; default `natural` | persone sempre a colori | look editoriale senza ritocchi locali sui volti |
 | 16 | **Apprendimento continuo** (§15, `knowledge/13-learning-loop.md`): Tier A automatico e locale per canale, Tier B revisionato (proposte → PR, merge umano), regole dure mai apprendibili | apprendimento solo in memoria; modifiche automatiche al knowledge | migliorare a ogni video senza perdere il controllo |
+| 17 | **Due host, una fonte** (§16): la stessa repo è anche un marketplace di Codex; per Codex solo involucri generati dai comandi di Claude Code, una guida di traduzione scritta a mano, hook e shim propri. Toolkit, gate, guard e regole restano quelli | una copia delle skill per Codex; un plugin separato | niente divergenza tra le due versioni; Codex inietta solo i primi 8.000 byte di una skill |
 
 ## 3. Architettura (plugin)
 
 ```
 <repo youtube-producer>/                         radice del marketplace «youtube-producer»
   .claude-plugin/marketplace.json               un plugin: youtube → ./plugins/youtube
-  README.md · CONTRIBUTING.md
+  .agents/plugins/marketplace.json              lo stesso marketplace per Codex (§16)
+  README.md · CODEX.md · CONTRIBUTING.md
   plugins/youtube/                              radice del plugin (${CLAUDE_PLUGIN_ROOT})
     .claude-plugin/plugin.json                  name «youtube», senza version (la versione è il commit)
+    .codex-plugin/plugin.json                   manifest Codex: name «youtube», version semver, skills → codex/skills/, hooks → codex/hooks.json, commands: [] (§16)
+    codex/                                      solo Codex: skills/<skill>/ generate da commands/, hooks.json, references/codex-host.md, toolkit-commands.txt
+    scripts/codex/build_skills.py               generatore e --check delle skill Codex
     agents/producer.md                          agente → subagent_type «youtube:producer»
     agents/thumb-cold-reader.md                 lettore a freddo delle thumbnail (sola lettura) → «youtube:thumb-cold-reader»
     commands/producer.md                        dispatcher → /youtube:producer
@@ -68,6 +73,7 @@ Il lavoro deve girare su un Mac senza un NLE professionale obbligatorio: ffmpeg,
 ${CLAUDE_PLUGIN_DATA} = ~/.claude/plugins/data/youtube-youtube-producer/
                                                 venv Python, node_modules (Playwright, Remotion), thumbvision compilato,
                                                 modelli MediaPipe, marker di setup; sopravvive agli aggiornamenti
+                                                (in Codex: ~/.codex/plugins/data/youtube-youtube-producer/, più shims/ con i comandi yt-*)
 ~/.config/youtube-producer/config.yaml          facoltativo: operator, vault_path, channels_dirs, brands_dirs, studio_dir, repo_path, learning_*
 ~/.config/youtube-producer/channels/            (default di channels_dirs) i profili dei canali e i loro glossari
 ~/.config/youtube-producer/brands/<slug>/       (default di brands_dirs) i brand dei canali: tokens.json, logo/, fonts/, layout.json,
@@ -264,7 +270,7 @@ Flusso tipico di un episodio: `yt-new` → `yt-ingest` → `yt-glossary` → `yt
 
 ## 10. Sicurezza
 
-`guard.sh` (hook `PreToolUse` su Bash del plugin, `hooks/hooks.json`, `onFailure: block`, timeout 10 s) blocca: `hyperframes (publish|cloud|lambda|cloudrun)`; `yt-dlp` con `--cookies*` o `--remote-components`; `curl|wget … | sh|bash`; `npx --yes` e `npx skills`; chiamate a `api.elevenlabs.io`, `generativelanguage.googleapis.com`, `api.groq.com`, `api.openai.com` salvo `YT_ALLOW_PAID=1`; `rm` dentro `*/src/` delle cartelle di lavoro e sugli originali in `~/Downloads`; con un vault configurato, copie e redirezioni Bash nel vault fuori dalle cartelle dei deliverable; `yt-learn propose-pr`, push su `main` e merge delle PR. Gli hook di un plugin valgono per ogni sessione: `guard.sh` legge il JSON dell'hook da stdin ed esce subito con 0 se il campo `agent_type` non è `youtube:producer`, senza loggare niente di sensibile. L'hook copre solo Bash: le scritture con Write/Edit restano disciplina dell'agente (regole nel file dell'agente e in `knowledge/11-compliance-safety.md`). Per l'agente l'hook è fail-closed: se `guard.sh` manca o non è eseguibile, l'agente non può usare Bash. Il critic (sub-agente `general-purpose`) non è coperto: i suoi limiti stanno nel brief. Env: `HYPERFRAMES_NO_TELEMETRY=1`, `DO_NOT_TRACK=1`, `REMOTION_DISABLE_TELEMETRY` se supportato, `WATCH_ENGINE=local`. `guard.sh --selftest` verifica le regole.
+`guard.sh` (hook `PreToolUse` su Bash del plugin, `hooks/hooks.json`, `onFailure: block`, timeout 10 s) blocca: `hyperframes (publish|cloud|lambda|cloudrun)`; `yt-dlp` con `--cookies*` o `--remote-components`; `curl|wget … | sh|bash`; `npx --yes` e `npx skills`; chiamate a `api.elevenlabs.io`, `generativelanguage.googleapis.com`, `api.groq.com`, `api.openai.com` salvo `YT_ALLOW_PAID=1`; `rm` dentro `*/src/` delle cartelle di lavoro e sugli originali in `~/Downloads`; con un vault configurato, copie e redirezioni Bash nel vault fuori dalle cartelle dei deliverable; `yt-learn propose-pr`, push su `main` e merge delle PR. Gli hook di un plugin valgono per ogni sessione: `guard.sh` legge il JSON dell'hook da stdin ed esce subito con 0 se il campo `agent_type` non è `youtube:producer`, senza loggare niente di sensibile. L'hook copre solo Bash: le scritture con Write/Edit restano disciplina dell'agente (regole nel file dell'agente e in `knowledge/11-compliance-safety.md`). Per l'agente l'hook è fail-closed: se `guard.sh` manca o non è eseguibile, l'agente non può usare Bash. Il critic (sub-agente `general-purpose`) non è coperto: i suoi limiti stanno nel brief. Env: `HYPERFRAMES_NO_TELEMETRY=1`, `DO_NOT_TRACK=1`, `REMOTION_DISABLE_TELEMETRY` se supportato, `WATCH_ENGINE=local`. `guard.sh --selftest` verifica le regole. In Codex lo stesso `guard.sh` è collegato in `codex/hooks.json` (`--codex`): si accende per sessione invece che per agente, controlla anche le patch e gli strumenti MCP, aggiunge le regole C1–C5 e, poiché Codex lascia passare i comandi quando un hook fallisce, è affiancato dal controllo `codex_guard` di `yt-config` e dalla sandbox di Codex (§16).
 
 ## 11. Licenze
 
@@ -316,6 +322,8 @@ Il plugin vive in una repo privata su GitHub, che è anche un marketplace Claude
 
 **Aggiornamenti e contributi.** `claude plugin marketplace update youtube-producer` e poi `claude plugin update youtube@youtube-producer` portano l'ultimo commit di `main`; dopo il riavvio di Claude Code, `/youtube:setup` (idempotente) riallinea dipendenze e marker. Le modifiche passano da branch e pull request (`CONTRIBUTING.md`): la copia installata non si modifica mai a mano.
 
+**Codex.** La stessa repo è anche un marketplace di Codex, con manifest, skill e hook propri accanto a quelli di Claude Code: §16.
+
 ## 15. Apprendimento continuo
 
 Il metodo completo è in `knowledge/13-learning-loop.md`; qui l'architettura e i contratti.
@@ -347,3 +355,41 @@ Il metodo completo è in `knowledge/13-learning-loop.md`; qui l'architettura e i
 **Privacy.** I dati di apprendimento restano in `<studio_dir>/data/` su ogni Mac, per canale. Una PR contiene regole e conteggi, mai immagini di persone, file del golden set o dei riferimenti, testo dei transcript, nomi di ospiti o di canali, dati di clienti o di canali personali, percorsi personali o segreti (`13` §9.2). Le lezioni di un cliente non escono dal suo perimetro.
 
 **Tornare indietro** (`13` §10): una lezione si ritira subito (`yt-learn lesson retire`), un evento registrato male si annulla (`yt-learn retract`) e i priori si ricalcolano; una PR di apprendimento unita per errore si annulla con una PR di revert.
+
+## 16. Due host: Claude Code e Codex
+
+Dal 2026-10-22 la stessa repo è anche un marketplace di OpenAI Codex (app ChatGPT per Mac e Codex CLI 0.155 o successiva). Guida per chi lo usa: `CODEX.md` nella radice della repo; regole per chi lo modifica: `CONTRIBUTING.md`, «Versione Codex». I fatti su Codex sono verificati sul sorgente al tag installato (`openai/codex` `rust-v0.155.0-alpha.16`) e sulla documentazione OpenAI (learn.chatgpt.com, developers.openai.com), consultati il 2026-10-22.
+
+**Principio: una fonte, due host.** Agente, dispatcher, skill, toolkit e knowledge pack sono gli stessi. Per Codex si aggiungono solo file che Claude Code non legge, e il comportamento di Claude Code non cambia.
+
+| Cosa | Claude Code | Codex |
+|---|---|---|
+| Marketplace | `.claude-plugin/marketplace.json` | `.agents/plugins/marketplace.json` (Codex lo preferisce a `.claude-plugin/`) |
+| Manifest | `.claude-plugin/plugin.json`, senza versione | `.codex-plugin/plugin.json`: `version` semver (serve alla cartella della cache), `skills: ./codex/skills/`, `hooks: ./codex/hooks.json`, `commands: []` (niente conversione automatica dei comandi). Con questi campi Codex ignora `skills/` e `hooks/hooks.json` |
+| Skill | `commands/*.md` → `/youtube:<skill>` | `codex/skills/<skill>/SKILL.md` → `$youtube:<skill>`: involucri generati da `scripts/codex/build_skills.py`; solo `producer` è invocabile in modo implicito |
+| Agente | `agents/producer.md` (`youtube:producer`), lettore a freddo `agents/thumb-cold-reader.md` | nessuno: i plugin di Codex non portano agenti. Il Producer è la conversazione stessa; critic e lettore a freddo sono subagent di Codex |
+| Traduzione | — | `codex/references/codex-host.md`, scritto a mano: strumenti, gate, guard, sandbox, setup, proposte |
+| Hook | `hooks/hooks.json` | `codex/hooks.json`, comandi congelati |
+| Comandi `yt-*` | symlink di `bin/` nel PATH di Bash | Codex scarta i symlink all'installazione e non mette `bin/` nel PATH: shim in `<data_dir>/shims/` (`scripts/yt/bin/codex-shims.sh`) più una riga PATH in `~/.zprofile` aggiunta con l'OK dell'operatore; prima del setup, `_run <comando>` |
+| Data dir | `~/.claude/plugins/data/youtube-youtube-producer/` | `~/.codex/plugins/data/youtube-youtube-producer/`: stessa regola della cache in `_paths.sh` e `config.py`; Codex la lascia dopo la disinstallazione |
+| Permessi | `settings.json` | sandbox di Codex in workspace-write con `~/youtube-studio` come progetto; `writable_roots` per configurazione (profili e brand compresi) e cartelle deliverable del vault (mai il vault intero, mai la data dir del plugin, che contiene i programmi lanciati anche fuori dalla sandbox), incollati dall'operatore; rete spenta. I comandi che usano GPU/Metal, VideoToolbox, Chrome o Apple Vision (trascrizione, render, fotogrammi, ritratti, thumbnail) dentro la sandbox falliscono (verificato con `codex sandbox -P :workspace`, Codex 0.155, macOS 26): girano fuori, con l'approvazione dell'operatore per ogni comando |
+| Memoria dell'agente | `memory: user` | `<studio_dir>/data/codex-memory/MEMORY.md`, letta al Passo 0 e aggiornata al Passo 4.3 |
+
+**Perché involucri e non copie.** Quando l'utente invoca una skill, Codex inietta solo i primi 8.000 byte del `SKILL.md` senza segnalare il taglio al modello (`ext/skills/src/render.rs`, `MAX_SKILL_PROMPT_BYTES`), mentre i file delle skill sono di 17–58 KB. Gli strumenti di Claude Code (Agent, SendMessage, Monitor, TodoWrite) non si traducono con sostituzioni di testo. L'involucro (al massimo 7.500 byte, controllato dal generatore) fa leggere a runtime `codex-host.md`, `agents/producer.md`, `commands/producer.md` e la skill, come già fa l'agente in Claude Code. `build_skills.py --check` e `scripts/yt/tests/test_codex_skills.py` tengono gli involucri allineati ai comandi.
+
+**Gate.** Codex non tiene attiva una skill da un turno all'altro. Al G1 e al G2 il Producer scrive il brief e chiude il turno; l'operatore risponde con `$youtube:producer` e le decisioni, che si registrano verbatim con `yt-learn decision` prima di applicarle. Lo stato resta in `project.json` e `qa/gate-G*.md`, quindi la ripresa funziona anche in un'altra conversazione. Delega solo con frase esplicita, G3 sempre manuale. Critic e lettore a freddo partono con `spawn_agent` senza la cronologia della conversazione; senza subagent, il critic gira in linea e il brief lo dichiara, il lettore a freddo risulta «non eseguito» e non si simula.
+
+**Guard.** Tre hook in `codex/hooks.json`: `PreToolUse` con matcher `^(Bash|apply_patch|mcp__.+)$` → `guard.sh --codex pre` (timeout 20 s), `UserPromptSubmit` → `guard.sh --codex prompt`, `SessionStart` → `session-hint.sh --codex`. Rispetto al §10:
+
+- Codex non passa all'hook l'identità di un agente, quindi il guard si accende **per sessione**: un marcatore `<session_id>` in `~/Library/Application Support/youtube-producer/codex-guard/` (solo ora e tipo di innesco), creato al primo segno di lavoro del plugin (`$youtube:` nel prompt, un comando del toolkit, un percorso di plugin, data dir, shim, studio o configurazione, una patch su studio o configurazione, un comando lanciato dallo studio). Da lì vale per tutta la sessione. Il vault da solo non lo accende.
+- Valgono le regole del §10, più: **N** (in entrambi gli host) `_run <comando>` e `bash <script>` valgono come il comando che lanciano, e le regole si applicano anche dentro `bash -c` con le opzioni unite (`-lc`, `-ec`), dentro `find -exec` e dopo le parole chiave della shell (`if`, `then`, `do`, `{`); **C1** niente scritture in `~/.codex/`, nella data dir del plugin e in quella della versione Claude Code (venv, node, shim, thumbvision, pycache: girano anche fuori dalla sandbox), nella copia installata del plugin o nello stato del guard; **C2** niente shell o REPL interattivi né comandi che eseguono quello che arriva dal terminale (`cat | bash`, `xargs` senza input, `read` + `eval`, codice `-c`/`-e` che esegue lo stdin), perché `write_stdin` non passa da `PreToolUse`: è un controllo al meglio; **C3** niente agenti annidati (`codex`, `claude`, `gemini`, `cursor-agent`, `aider`, `opencode`); **C4** niente destinazioni relative in scrittura senza un `cd` assoluto nello stesso comando, perché il payload dell'hook non porta il `workdir` del comando; **C5** niente strumenti MCP (`mcp__…`: connettori, browser, computer use, `node_repl`, servizi generativi o a pagamento), come la lista `tools:` dell'agente di Claude Code, che non ne ha. Una chiamata a pagamento approvata si fa in una chat nuova.
+- Blocca con exit 2 e motivo su stderr. Gli hook di un plugin girano solo dopo che l'utente li ha approvati; l'approvazione vale per evento, matcher e comando (non per il contenuto dello script), quindi i comandi in `codex/hooks.json` non si cambiano.
+- Codex lascia passare il comando quando un hook manca, fallisce o va in timeout. Per compensare, ogni chiamata dell'hook rinfresca il marcatore e `yt-config` lanciato da Codex (`CODEX_SESSION_ID` nell'ambiente) riporta `codex_guard.active` solo se il marcatore ha meno di 600 s (altrimenti `reason: stale`; il margine copre l'attesa di un'approvazione), le skill non lanciano comandi su media, dati, render o vault finché è `false`, e la sandbox tiene la rete spenta e scrivibili solo le cartelle di YouTube per i comandi che girano dentro di lei (non per quelli su video e immagini, che escono dalla sandbox con l'approvazione dell'operatore e restano sotto il guard).
+- In Codex 0.155 ogni modifica ai file passa da `PreToolUse`: `apply_patch` esiste solo nella forma freeform e arriva all'hook come `apply_patch` con `{"command": <patch>}`; una patch lanciata dalla shell arriva come `Bash` (sorgente `rust-v0.155.0-alpha.16`: `protocol/src/openai_models.rs` `ApplyPatchToolType`, `core/src/tools/handlers/apply_patch.rs`, `core/src/tools/registry.rs`). La sandbox resta la seconda linea.
+- Le skill leggono i file a blocchi di 120 righe (al massimo ~24 KB): Codex taglia a metà l'output di uno strumento oltre circa 10.000 token (`models-manager/models.json`, `truncation_policy`). `test_codex_skills.py` controlla i blocchi.
+
+**Proposte (Tier B, §15).** In Codex la PR `learn/…` la lancia l'operatore nel suo Terminale (`yt-learn propose-pr --dry-run`, poi `yt-learn propose-pr`). Nella conversazione il guard la blocca, e `learning_auto_pr` non vale.
+
+**Claude Code invariato.** `commands/`, `agents/`, `hooks/hooks.json` e i symlink di `bin/` non cambiano. Negli script condivisi il comportamento per Codex sta dietro `--codex`, dietro la forma diretta `_run <comando>`, dietro `CODEX_SESSION_ID` o dietro una copia del toolkit nella cache dei plugin di Codex, con un'eccezione voluta: le regole del guard sui lanciatori (N), sulle shell annidate con opzioni unite (`bash -lc`), su `find -exec` e sulle parole chiave della shell valgono anche per l'agente di Claude Code, che diventa solo più stretto. Nella radice del plugin non esiste una cartella `skills/`: Claude Code la caricherebbe e le skill risulterebbero doppie. Si verifica con `claude plugin validate`, i test del toolkit, `guard.sh --selftest`, `build_skills.py --check`, il test di sincronia (`test_codex_skills.py`) e `test_codex_runtime.py` (copia installata da Codex senza symlink, shim, guard per sessione, hook congelati, hook di Claude Code muti con i payload di Codex).
+
+**Cosa non c'è in Codex.** HyperFrames e `/watch`, che sono plugin di Claude Code: valgono i ripieghi descritti nelle skill. Le attività cloud di Codex e l'estensione per gli editor (che non supporta i plugin) non possono usare il toolkit locale. Come in Claude Code, solo Mac Apple Silicon.

@@ -13,11 +13,11 @@ La repo è privata e la usano le persone invitate come collaboratori. Ogni commi
    È anche il `repo_path` di default delle PR di apprendimento `learn/…`; se la cloni altrove, scrivi il percorso in `repo_path` (README, «Configurazione»).
 2. Crea un branch da `main` aggiornato, con un nome che dica cosa fai: `feat/<cosa>`, `fix/<cosa>`, `docs/<cosa>`, `knowledge/<cosa>`. Per esempio `fix/capitoli-oltre-un-ora`.
 3. Lavora e prova in locale (sotto). Commit piccoli, messaggi brevi in italiano all'imperativo («Correggi il crop degli Shorts sul campo largo»).
-4. Apri la PR verso `main` con `gh pr create`. Nella descrizione: cosa cambia, perché, come l'hai provato (comandi e risultati), cosa cambia per chi usa il plugin (serve rilanciare `/youtube:setup`? cambia un comportamento dell'agente?).
+4. Apri la PR verso `main` con `gh pr create`. Nella descrizione: cosa cambia, perché, come l'hai provato (comandi e risultati), cosa cambia per chi usa il plugin (serve rilanciare `/youtube:setup`? cambia un comportamento dell'agente?) e, se tocchi `plugins/youtube/`, cosa cambia per chi lo usa con Codex ([Versione Codex](#versione-codex)).
 5. Revisione di un'altra persona con accesso alla repo. Si fa merge solo con i test verdi e le domande chiuse. Preferito lo squash merge: un commit per PR su `main`.
-6. Dopo il merge, chi vuole la versione nuova lancia `claude plugin marketplace update youtube-producer`, poi `claude plugin update youtube@youtube-producer`, e riavvia Claude Code (README, «Aggiornare»); poi `/youtube:setup` se la PR cambia dipendenze o lockfile.
+6. Dopo il merge, chi vuole la versione nuova lancia `claude plugin marketplace update youtube-producer`, poi `claude plugin update youtube@youtube-producer`, e riavvia Claude Code (README, «Aggiornare»); poi `/youtube:setup` se la PR cambia dipendenze o lockfile. Con Codex: `codex plugin marketplace upgrade youtube-producer`, poi una conversazione nuova (CODEX.md, «Aggiornare»).
 
-Non si modifica mai la copia installata in `~/.claude/plugins/`: si sovrascrive al primo aggiornamento e nessun altro vede la modifica.
+Non si modifica mai la copia installata in `~/.claude/plugins/` o in `~/.codex/plugins/`: si sovrascrive al primo aggiornamento e nessun altro vede la modifica.
 
 ## Provare in locale
 
@@ -46,9 +46,68 @@ for t in plugins/youtube/scripts/yt/tests/test_*.py; do "$PY" "$t" || break; don
 "$PY" plugins/youtube/scripts/yt/tests/test_learn.py thompson    # solo i test il cui nome contiene «thompson»
 ```
 
+Il ciclo comprende anche i test della versione Codex (`test_codex*.py`), che girano pure con il `python3` di sistema ([Versione Codex](#versione-codex)).
+
 Per il kit del pre-test delle thumbnail: `python3 plugins/youtube/docs/yt/templates/pretest-kit/analizza.py selftest`.
 
 Se la PR tocca trascrizione, montaggio, Shorts o thumbnail, fai girare anche la catena end-to-end (ordine in `plugins/youtube/scripts/yt/README.md`) su un estratto di pochi minuti di un tuo video, tenuto fuori dal checkout, e riporta nella PR i numeri prima e dopo (loudness, errori di trascrizione sui nomi, controlli del QA).
+
+## Versione Codex
+
+Lo stesso plugin gira anche in Codex di OpenAI (guida per chi lo usa: `CODEX.md`). La fonte resta una sola: agente, dispatcher e skill di Claude Code, toolkit e knowledge pack. In Codex un plugin non può portare agenti e i comandi di Claude Code non diventano skill da soli, quindi Codex riceve delle skill brevi che dicono al modello di leggere a runtime i file di Claude Code e di applicarli con una guida di traduzione. Claude Code non legge nessuno dei file qui sotto.
+
+| File | Cosa contiene | Come si cambia |
+|---|---|---|
+| `.agents/plugins/marketplace.json` | il marketplace per Codex (Codex lo legge al posto di `.claude-plugin/marketplace.json`) | a mano |
+| `plugins/youtube/.codex-plugin/plugin.json` | il manifest per Codex: nome, versione, skill in `codex/skills/`, hook in `codex/hooks.json`, `commands: []` | a mano |
+| `plugins/youtube/codex/skills/<nome>/SKILL.md` e `agents/openai.yaml` | una skill Codex per ogni `commands/<nome>.md` | **generati**, mai a mano |
+| `plugins/youtube/codex/toolkit-commands.txt` | i nomi dei comandi di `bin/`, per gli shim e per il guard di Codex | **generato** |
+| `plugins/youtube/codex/references/codex-host.md` | come valgono in Codex le istruzioni scritte per Claude Code: strumenti, gate, guard, sandbox, setup | a mano |
+| `plugins/youtube/codex/hooks.json` | i tre hook di Codex | a mano, **congelato** (sotto) |
+| `plugins/youtube/scripts/codex/build_skills.py` | il generatore | a mano |
+| `plugins/youtube/scripts/yt/bin/codex-shims.sh` | i comandi `yt-*` per Codex (Codex non copia i symlink di `bin/`) | a mano |
+
+**Rigenerare le skill di Codex.** Ogni volta che cambi un `commands/*.md` (anche solo `description` o `argument-hint`), la tabella del Passo 1 di `agents/producer.md` o i comandi in `bin/`, dalla radice della repo:
+
+```bash
+python3 plugins/youtube/scripts/codex/build_skills.py            # riscrive codex/skills/ e codex/toolkit-commands.txt
+python3 plugins/youtube/scripts/codex/build_skills.py --check    # deve uscire con 0: niente di vecchio, mancante o in più
+python3 plugins/youtube/scripts/yt/tests/test_codex_skills.py    # test di sincronia; basta il python3 di sistema
+python3 plugins/youtube/scripts/yt/tests/test_codex_runtime.py   # copia installata da Codex, shim, guard (anche MCP e data dir), hook congelati
+```
+
+Committa i file generati insieme alla modifica che li ha cambiati. Se dimentichi di rigenerare, `--check` e il test di sincronia falliscono. Sul tuo Mac, se c'è Codex, il test lancia anche i validatori di OpenAI in sola lettura; altrimenti quella parte viene saltata.
+
+**Regole della versione Codex.**
+
+- **Una skill nuova** (`commands/<nome>.md`, «Proporre una skill nuova» sotto) in Codex esiste solo se il generatore la conosce: aggiungi la sua voce in `TITLES`, `SHORT` (25–64 caratteri) e `DEFAULT_PROMPTS` di `build_skills.py` e rigenera. Il generatore si ferma se manca una voce, o se `commands/` e la tabella del Passo 1 di `agents/producer.md` non coincidono.
+- **Le skill Codex restano corte** (errore sopra i 7.500 byte): quando l'utente chiama una skill, Codex passa al modello solo i primi 8.000 byte del `SKILL.md`, senza avvisarlo. Il metodo resta nei file di Claude Code; negli involucri non si copia.
+- **Righe non troppo lunghe nei file che le skill leggono** (`commands/`, `agents/`, `docs/yt/knowledge/`, `docs/yt/templates/`, `codex/references/`): in Codex si leggono a blocchi di 120 righe, e Codex taglia a metà l'output di un comando oltre circa 10.000 token. `test_codex_skills.py` fallisce se un blocco supera i 24 KB.
+- **Uno strumento nuovo** nel frontmatter `tools:` di `agents/producer.md` va aggiunto alla tabella «Traduzione» di `codex/references/codex-host.md`.
+- **Mai una cartella `plugins/youtube/skills/`**: Claude Code la caricherebbe e avresti skill doppie. Il generatore si ferma se la trova.
+- **La versione.** Per Claude Code la versione è il commit; Codex vuole un numero, che usa per la cartella della cache. In ogni PR che tocca `plugins/youtube/` alza di una patch `version` in `plugins/youtube/.codex-plugin/plugin.json` (per esempio 1.0.0 → 1.0.1).
+- **`codex/hooks.json` non si cambia.** Codex chiede di riapprovare gli hook quando ne cambiano evento, matcher, comando, timeout o messaggio di stato: ogni collega che usa Codex dovrebbe rifarlo. Se una modifica è inevitabile, scrivilo nella PR e aggiorna `FROZEN_HOOKS` in `test_codex_runtime.py`, che altrimenti fallisce. Le regole del guard si cambiano in `guard.sh`, che per l'approvazione non conta.
+- **Gli script condivisi** (`scripts/yt/bin/_run`, `_paths.sh`, `guard.sh`, `session-hint.sh`, `scripts/yt/install.sh`, `lib/config.py`, `lib/ytcore.py`, `lib/doctor.py`) in Claude Code devono fare quello che facevano. Quello che serve solo a Codex sta dietro l'opzione `--codex`, dietro la forma diretta `_run <comando>`, dietro la variabile `CODEX_SESSION_ID` o dietro una copia del toolkit nella cache dei plugin di Codex. Un'eccezione voluta: nel guard le regole sui lanciatori (N: `_run <comando>`, `bash <script>`), sulle shell annidate con le opzioni unite (`bash -lc`, `sh -ec`), su `find -exec` e sulle parole chiave della shell (`if`, `then`, `do`, `{`) valgono anche per l'agente di Claude Code, che così diventa solo più stretto. `guard.sh --selftest` copre anche le regole di Codex.
+- **I validatori di OpenAI** sul manifest vero (`~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/youtube`) segnalano tre errori attesi: `hooks`, `commands` e `skills` che non punta a `skills/`. Valgono per i plugin dell'elenco pubblico di OpenAI, non per l'installazione da una repo; il loader di Codex li accetta.
+
+**Provare il tuo branch in Codex.** Codex legge un marketplace locale direttamente dalla cartella, ma copia il plugin nella sua cache quando lo installi: dopo ogni modifica va reinstallato. Prova sempre in una conversazione aperta fuori dal clone (per esempio in `~/youtube-studio`): dentro il clone Codex vede anche il marketplace della repo e ne trova due con lo stesso nome.
+
+```bash
+# una volta: al posto del marketplace di GitHub, il tuo clone (sul branch della PR)
+codex plugin remove youtube@youtube-producer
+codex plugin marketplace remove youtube-producer
+codex plugin marketplace add ~/youtube-producer
+codex plugin add youtube@youtube-producer
+# dopo ogni modifica: reinstalla, poi apri una conversazione nuova
+codex plugin remove youtube@youtube-producer && codex plugin add youtube@youtube-producer
+# alla fine: torna alla versione di tutti
+codex plugin remove youtube@youtube-producer
+codex plugin marketplace remove youtube-producer
+codex plugin marketplace add MikeIdeas2025/youtube-producer
+codex plugin add youtube@youtube-producer
+```
+
+Se dopo il cambio di marketplace Codex chiede di nuovo di approvare gli hook, approvali (CLI `/hooks`). Nella conversazione di prova: `$youtube:setup doctor`, poi «mostrami yt-config» (`codex_guard` deve dire `"active": true`), poi la skill che hai cambiato su un caso piccolo, fino al gate.
 
 ## Regole
 
@@ -91,4 +150,5 @@ L'agente impara da solo in locale (Tier A) e, per i canali che lo permettono, sc
 4. Se porta metodo nuovo, mettilo nel knowledge pack (un file esistente o un `14-…` nuovo) e citane le sezioni dalla skill. Aggiungi una sezione «Learning» che dica cosa registra e quali priori legge (`13-learning-loop.md` §4.2).
 5. Aggiorna la tabella delle skill in `plugins/youtube/docs/yt/DESIGN.md` §5, `plugins/youtube/docs/yt/README.md` e il `README.md` della repo.
 6. Se servono comandi nuovi del toolkit: `lib/<cmd>.py` con stdout = un solo JSON (`ok`, `outputs`, `warnings`), `--help` in italiano, symlink `bin/yt-<cmd>` → `../scripts/yt/bin/_run` nella `bin/` del plugin, riga nel `scripts/yt/README.md`.
-7. Prova con `claude --plugin-dir ./plugins/youtube` e `claude plugin validate ./plugins/youtube --strict` (solo l'avviso sulla versione è ammesso), poi apri la PR.
+7. Per Codex: le voci della skill in `build_skills.py`, poi rigenera e lancia il test di sincronia ([Versione Codex](#versione-codex)). Un comando nuovo del toolkit entra da solo in `codex/toolkit-commands.txt` quando rigeneri.
+8. Prova con `claude --plugin-dir ./plugins/youtube` e `claude plugin validate ./plugins/youtube --strict` (solo l'avviso sulla versione è ammesso), poi apri la PR.

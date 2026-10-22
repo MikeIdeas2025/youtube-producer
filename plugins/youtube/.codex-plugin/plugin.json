@@ -1,0 +1,26 @@
+{
+  "name": "youtube",
+  "version": "1.0.0",
+  "description": "YouTube Producer: strategia e audit di canale, ricerca, storia e hook, montaggio long-form con FCPXML, sottotitoli, capitoli, Shorts, thumbnail con QA e review dei numeri. Toolkit locale su Mac Apple Silicon (setup con $youtube:setup); non pubblica mai nulla.",
+  "author": {
+    "name": "MikeIdeas2025"
+  },
+  "repository": "https://github.com/MikeIdeas2025/youtube-producer",
+  "keywords": ["youtube", "video", "montaggio", "thumbnail", "shorts"],
+  "skills": "./codex/skills/",
+  "hooks": "./codex/hooks.json",
+  "commands": [],
+  "interface": {
+    "displayName": "YouTube Producer",
+    "shortDescription": "Strategia, montaggio, Shorts e thumbnail per YouTube",
+    "longDescription": "Strategist e producer YouTube che lavora in locale sul Mac: audit, strategia, storia, hook, montaggio, sottotitoli, capitoli, Shorts, thumbnail e review. Si ferma ai gate G1 e G2 e non pubblica mai (G3 è sempre manuale). Dopo l'installazione approva gli hook del plugin (/hooks nella CLI, pagina del plugin nell'app) e lancia $youtube:setup.",
+    "developerName": "MikeIdeas2025",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": [
+      "$youtube:setup installa e controlla il toolkit",
+      "$youtube:producer audit del mio canale",
+      "$youtube:producer monta l'episodio registrato"
+    ]
+  }
+}

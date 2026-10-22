@@ -7,10 +7,15 @@
 #   <data>/venv/bin/python             (layout del plugin, creato da /youtube:setup → install.sh)
 #   <scripts/yt>/.venv/bin/python      (checkout di sviluppo con layout storico)
 # yt-config funziona anche senza venv (python3 di sistema: config.py usa solo la stdlib).
+# Forma diretta: `_run <yt-comando|thumbvision> [argomenti]` (Codex non copia i symlink del plugin: i comandi yt-* di
+# Codex sono shim in <data>/shims, creati da codex-shims.sh, che chiamano questa forma).
 set -euo pipefail
 
 self="$0"
 cmd="$(basename "$self")"
+if [ "$cmd" = "_run" ] && [ $# -gt 0 ]; then
+  case "$1" in yt-*|thumbvision) cmd="$1"; shift ;; esac
+fi
 src="$self"
 while [ -L "$src" ]; do
   dir="$(cd -P "$(dirname "$src")" && pwd)"
@@ -34,6 +39,12 @@ else
   tv="$YT_HOME/bin/thumbvision"
 fi
 
+# In Codex (sessione di Codex, o toolkit nella cache dei plugin di Codex) la skill si chiama $youtube:setup
+SETUP_CMD="/youtube:setup"
+case "${CODEX_SESSION_ID:-}:$YT_HOME" in
+  ?*:*|*/.codex/plugins/cache/*) SETUP_CMD='$youtube:setup' ;;
+esac
+
 json_error() {  # messaggio → JSON su stdout (contratto dei comandi) + testo su stderr
   local m="$1"
   m="${m//\\/\\\\}"; m="${m//\"/\\\"}"
@@ -44,14 +55,14 @@ json_error() {  # messaggio → JSON su stdout (contratto dei comandi) + testo s
 case "$cmd" in
   thumbvision)
     if [ ! -x "$tv" ]; then
-      json_error "thumbvision non disponibile ($tv): esegui /youtube:setup (oppure yt-install --yes)"
+      json_error "thumbvision non disponibile ($tv): esegui $SETUP_CMD (oppure yt-install --yes)"
       exit 3
     fi
     exec "$tv" "$@"
     ;;
   yt-*) ;;
   *)
-    echo "uso: invocare tramite un symlink yt-<comando> (es. yt-doctor), non $cmd direttamente" >&2
+    echo "uso: invocare tramite un symlink yt-<comando> (es. yt-doctor) oppure come $cmd yt-<comando> [argomenti]" >&2
     exit 2
     ;;
 esac
@@ -71,7 +82,7 @@ if [ ! -x "$py" ]; then
       exec "$sys_py" -I -B "$script" "$@"
     fi
   fi
-  json_error "Toolkit non installato: manca il venv Python ($py). Esegui /youtube:setup (oppure yt-install --yes)."
+  json_error "Toolkit non installato: manca il venv Python ($py). Esegui $SETUP_CMD (oppure yt-install --yes)."
   exit 3
 fi
 exec "$py" "$script" "$@"

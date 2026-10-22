@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Chapters"
+  short_description: "Capitoli YouTube validati dal transcript"
+  default_prompt: "Usa $youtube:chapters per i capitoli dell'episodio montato."
+policy:
+  allow_implicit_invocation: false

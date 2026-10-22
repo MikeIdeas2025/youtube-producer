@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Story"
+  short_description: "Dal girato alla storia: selects, beat e paper edit"
+  default_prompt: "Usa $youtube:story per trovare la storia nell'intervista registrata."
+policy:
+  allow_implicit_invocation: false

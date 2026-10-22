@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Channel Audit"
+  short_description: "Audit del canale: dati, packaging e vincolo primario"
+  default_prompt: "Usa $youtube:channel-audit per l'audit del mio canale YouTube."
+policy:
+  allow_implicit_invocation: false

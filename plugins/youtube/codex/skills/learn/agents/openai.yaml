@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Learn"
+  short_description: "Esiti, priori, lezioni e playbook del canale"
+  default_prompt: "Usa $youtube:learn per vedere cosa ha imparato il canale."
+policy:
+  allow_implicit_invocation: false

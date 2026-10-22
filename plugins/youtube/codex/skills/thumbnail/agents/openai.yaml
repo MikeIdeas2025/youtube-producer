@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Thumbnail"
+  short_description: "Thumbnail: 3 concept, QA, lettore a freddo e gate G2"
+  default_prompt: "Usa $youtube:thumbnail per 3 concept di thumbnail dell'episodio fino al gate G2."
+policy:
+  allow_implicit_invocation: false

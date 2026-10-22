@@ -43,6 +43,10 @@ del setup), in ordine: YT_DATA → CLAUDE_PLUGIN_DATA (solo se è la cartella di
 ricavata dal percorso della cache dei plugin (~/.claude/plugins/cache/<marketplace>/<plugin>/<versione>/ →
 ~/.claude/plugins/data/<plugin>-<marketplace>/) → checkout di sviluppo con <scripts/yt>/.venv (layout storico:
 tutto dentro scripts/yt) → ~/.claude/plugins/data/youtube-youtube-producer.
+In Codex vale la stessa regola della cache: ~/.codex/plugins/cache/youtube-producer/youtube/<versione>/ →
+~/.codex/plugins/data/youtube-youtube-producer/ (dove stanno anche gli shim dei comandi yt-*, in shims/). Lanciato da
+Codex (CODEX_SESSION_ID nell'ambiente), yt-config aggiunge `codex_guard` (l'hook guard.sh --codex ha segnato questo
+thread?) e `codex_shims_dir`.
 
 Questo modulo non dipende da PyYAML (ripiego su un parser minimo) perché lo usano anche guard.sh
 (python3 di sistema, -I) e `yt-config` prima che il venv esista.
@@ -55,6 +59,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -157,6 +162,78 @@ def resolve_data_dir() -> tuple[Path | None, str]:
     if (YT_HOME / ".venv" / "bin" / "python").exists():
         return None, "checkout di sviluppo (scripts/yt/.venv)"
     return _claude_config_dir() / "plugins" / "data" / DEFAULT_DATA_ID, "predefinita"
+
+
+# ── Codex (versione del plugin per OpenAI Codex: .codex-plugin/, codex/) ──────
+# Codex copia il plugin in <CODEX_HOME>/plugins/cache/<marketplace>/<plugin>/<versione>/ (senza symlink) e gli dà la
+# data dir <CODEX_HOME>/plugins/data/<plugin>-<marketplace>: è la stessa regola della cache di Claude Code, quindi
+# resolve_data_dir() non cambia. I comandi yt-* di Codex sono shim in <data>/shims (scripts/yt/bin/codex-shims.sh).
+# Il guard di Codex (guard.sh --codex) segna con un file per sessione i thread in cui è partito il lavoro di YouTube
+# Producer: stessa cartella di _paths.sh yt_codex_guard_dir (se cambi qui, cambia anche lì).
+CODEX_GUARD_DEFAULT = HOME / "Library" / "Application Support" / "youtube-producer" / "codex-guard"
+CODEX_SESSION_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{7,79}")
+# Ogni chiamata dell'hook (PreToolUse, UserPromptSubmit) rinfresca il marcatore; quella di yt-config arriva un attimo
+# prima di yt-config (o prima dell'approvazione, se Codex la chiede: da qui il margine di 10 minuti). Un marcatore più
+# vecchio vuol dire che l'hook non sta girando più (thread ripreso dopo un aggiornamento con gli hook da riapprovare,
+# hook spenti, solo hook gestiti): il thread non risulta controllato.
+CODEX_GUARD_FRESH_S = 600
+CODEX_HOOKS_FIX = ("approva gli hook del plugin (CLI: /hooks; app: pagina del plugin → Hook → «Autorizza tutti», in "
+                   "inglese «Trust all») e apri una conversazione nuova; se l'organizzazione permette solo gli hook "
+                   "gestiti dall'amministratore, vedi CODEX.md («Il guard in Codex»)")
+
+
+def codex_home() -> Path:
+    env = os.environ.get("CODEX_HOME")
+    return Path(env).expanduser() if env else HOME / ".codex"
+
+
+def codex_install() -> bool:
+    """True se il toolkit gira dalla cache dei plugin di Codex (<CODEX_HOME>/plugins/cache/…)."""
+    ident = cache_identity()
+    if not ident:
+        return False
+    parent = ident["base"].parent
+    try:
+        return parent == codex_home().resolve() or parent.name == ".codex"
+    except OSError:
+        return parent.name == ".codex"
+
+
+def codex_guard_dir() -> Path:
+    env = os.environ.get("YT_CODEX_GUARD_DIR")
+    return Path(env).expanduser() if env else CODEX_GUARD_DEFAULT
+
+
+def codex_shims_dir() -> Path | None:
+    data, _ = resolve_data_dir()
+    return data / "shims" if data else None
+
+
+def codex_guard_status(session: str | None = None) -> dict:
+    """Il guard di Codex ha segnato questa sessione, e di recente? (CODEX_SESSION_ID dell'ambiente dei comandi di
+    Codex). L'hook PreToolUse gira prima del comando e rinfresca il marcatore: se è approvato e funziona, un comando del
+    toolkit (yt-config, yt-doctor…) trova un marcatore di pochi secondi prima. Un marcatore vecchio (oltre
+    CODEX_GUARD_FRESH_S secondi) vuol dire che l'hook non gira più: «active» false, «reason» "stale"."""
+    sid = session if session is not None else os.environ.get("CODEX_SESSION_ID", "")
+    gdir = codex_guard_dir()
+    valid = bool(sid) and CODEX_SESSION_RE.fullmatch(sid) is not None
+    marker = gdir / sid if valid else None
+    try:
+        age = time.time() - marker.stat().st_mtime if marker is not None and marker.is_file() else None
+    except OSError:
+        age = None
+    active = age is not None and age <= CODEX_GUARD_FRESH_S
+    out: dict[str, Any] = {"active": active, "session": sid or None, "dir": str(gdir)}
+    if not active:
+        out["reason"] = ("invalid_session" if not valid else "no_marker" if age is None else "stale")
+        if not valid:
+            out["fix"] = "CODEX_SESSION_ID assente o non valido: lancia il comando da Codex"
+        elif age is None:
+            out["fix"] = CODEX_HOOKS_FIX
+        else:
+            out["fix"] = (f"l'hook ha visto questa conversazione l'ultima volta {int(age)} s fa, non adesso: non sta "
+                          f"girando più. {CODEX_HOOKS_FIX[0].upper()}{CODEX_HOOKS_FIX[1:]}")
+    return out
 
 
 def layout() -> dict:
@@ -623,7 +700,14 @@ def describe(channel: str | None = None) -> dict:
     marker = read_marker(lay["marker"])
     fp = setup_fingerprint()
     root = plugin_root()
+    codex: dict[str, Any] = {}
+    if os.environ.get("CODEX_SESSION_ID"):      # comando lanciato da Codex
+        codex["codex_guard"] = codex_guard_status()
+    if codex or codex_install():
+        shims = codex_shims_dir()
+        codex["codex_shims_dir"] = str(shims) if shims else None
     return {
+        **codex,
         "plugin_root": str(root) if root else None,
         "data_dir": str(lay["data_dir"]),
         "venv_python": str(venv_py),

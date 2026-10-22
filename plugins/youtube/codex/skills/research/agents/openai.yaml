@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Research"
+  short_description: "Outlier, competitor, teardown e commenti della nicchia"
+  default_prompt: "Usa $youtube:research per trovare gli outlier della nicchia del canale."
+policy:
+  allow_implicit_invocation: false
