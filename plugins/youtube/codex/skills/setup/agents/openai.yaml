@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Setup"
+  short_description: "Installa il toolkit, configura e controlla i canali"
+  default_prompt: "Usa $youtube:setup per installare e controllare il toolkit sul Mac."
+policy:
+  allow_implicit_invocation: false

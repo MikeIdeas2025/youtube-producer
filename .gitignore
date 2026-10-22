@@ -1,5 +1,6 @@
 # YouTube Producer — tutto ciò che si genera o si installa resta fuori dal repo.
-# Le dipendenze vivono nella data dir del plugin (~/.claude/plugins/data/youtube-youtube-producer/),
+# Le dipendenze vivono nella data dir del plugin (~/.claude/plugins/data/youtube-youtube-producer/; in Codex
+# ~/.codex/plugins/data/youtube-youtube-producer/, con gli shim dei comandi yt-* in shims/),
 # le cartelle di lavoro in ~/youtube-studio (mai dentro il repo).
 
 # Python

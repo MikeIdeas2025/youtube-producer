@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Review"
+  short_description: "Lettura dei numeri: T+48h, settimana, mese, trimestre"
+  default_prompt: "Usa $youtube:review per leggere i numeri dell'ultimo video a 48 ore."
+policy:
+  allow_implicit_invocation: false

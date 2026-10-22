@@ -73,7 +73,9 @@ SWIFT_SRC = YT_HOME / "swift" / "thumbvision.swift"
 SWIFT_BIN_PREBUILT = YT_HOME / "bin" / "thumbvision"    # binario arm64 incluso nel repo (ripiego)
 SWIFT_BIN_BUILD = LAYOUT["thumbvision_build"]           # compilato da install.sh per questo Mac
 SWIFT_BIN = SWIFT_BIN_BUILD if os.access(SWIFT_BIN_BUILD, os.X_OK) else SWIFT_BIN_PREBUILT
-SETUP_HINT = "esegui /youtube:setup (oppure yt-install --yes)"
+# In Codex (comando lanciato da Codex o toolkit nella cache dei plugin di Codex) le skill si chiamano con $youtube:…
+CODEX_HOST = bool(os.environ.get("CODEX_SESSION_ID")) or _config.codex_install()
+SETUP_HINT = f"esegui {'$' if CODEX_HOST else '/'}youtube:setup (oppure yt-install --yes)"
 
 # ── Binari ──────────────────────────────────────────────────────────────────
 # ffmpeg-full (keg-only) ha libass/freetype/zscale: lo usiamo SEMPRE per percorso assoluto.

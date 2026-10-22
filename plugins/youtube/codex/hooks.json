@@ -1,0 +1,41 @@
+{
+  "description": "YouTube Producer (Codex). PreToolUse: guard.sh controlla shell, apply_patch e strumenti MCP nei thread in cui hai usato YouTube Producer. UserPromptSubmit: attiva il guard quando scrivi $youtube:…. SessionStart: suggerisce $youtube:setup se il toolkit manca o va riallineato. Non cambiare i comandi: Codex chiederebbe di riapprovare gli hook.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|apply_patch|mcp__.+)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash \"${PLUGIN_ROOT}/scripts/yt/bin/guard.sh\" --codex pre",
+            "timeout": 20,
+            "statusMessage": "YouTube Producer: controllo"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash \"${PLUGIN_ROOT}/scripts/yt/bin/guard.sh\" --codex prompt",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash \"${PLUGIN_ROOT}/scripts/yt/bin/session-hint.sh\" --codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

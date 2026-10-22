@@ -1,6 +1,6 @@
 # docs/yt — la conoscenza del YouTube Producer
 
-Qui c'è tutto quello che l'agente `youtube:producer` (dispatcher `/youtube:producer`, skill `/youtube:<skill>`) legge per lavorare: il design doc, il knowledge pack, il template del profilo canale, le guide e i modelli da mandare o stampare, le attribuzioni di terzi. Il codice sta in `../../scripts/yt/` (vedi i link in fondo).
+Qui c'è tutto quello che l'agente `youtube:producer` (dispatcher `/youtube:producer`, skill `/youtube:<skill>`) legge per lavorare: il design doc, il knowledge pack, il template del profilo canale, le guide e i modelli da mandare o stampare, le attribuzioni di terzi. In Codex gli stessi file li legge la conversazione aperta con `$youtube:producer` (o `$youtube:<skill>`), tramite le skill di `../../codex/` (DESIGN.md §16). Il codice sta in `../../scripts/yt/` (vedi i link in fondo).
 
 **Ordine di precedenza se due fonti si contraddicono:** `--help` del comando > design doc > knowledge pack > modelli e guide.
 
@@ -10,6 +10,7 @@ Qui c'è tutto quello che l'agente `youtube:producer` (dispatcher `/youtube:prod
 - Nel knowledge pack i file fratelli si citano per nome (`07-thumbnails.md` §11, oppure `07` §11); i percorsi del toolkit sono relativi alla radice del plugin (`scripts/yt/…`).
 - I comandi del toolkit si chiamano per nome (`yt-ingest`, `yt-config`, `thumbvision`…): con il plugin attivo sono nel PATH di Bash.
 - `<studio_dir>` è lo `studio_dir` di `yt-config` (default `~/youtube-studio`).
+- **In Codex** valgono gli stessi file e gli stessi percorsi, letti secondo `codex/references/codex-host.md`: `${CLAUDE_PLUGIN_ROOT}` è la radice del plugin che stampa `yt-config --get plugin_root` (la copia installata sta sotto `~/.codex/plugins/cache/`), `/youtube:<skill>` diventa `$youtube:<skill>`, e i comandi del toolkit si chiamano per nome grazie agli shim in `<data_dir>/shims/` (`scripts/yt/bin/codex-shims.sh`). Se un file del plugin e `codex-host.md` si contraddicono su come si lavora in Codex, vale `codex-host.md`.
 
 ## Knowledge pack — `knowledge/`
 
@@ -70,6 +71,7 @@ La ricerca da cui nasce il plugin è riassunta nel knowledge pack, che è la ver
 
 - Toolkit (comandi `yt-*`, contratti CLI): `scripts/yt/README.md`; il riferimento vincolante resta `<comando> --help`. Installazione: `scripts/yt/install.sh`, lanciato da `/youtube:setup`.
 - Agente: `agents/producer.md` · lettore a freddo: `agents/thumb-cold-reader.md` · dispatcher: `commands/producer.md` (`/youtube:producer`) · skill: `commands/*.md` (`/youtube:<skill>`, compreso `/youtube:learn`) · hook: `hooks/hooks.json`.
+- Versione Codex: manifest `.codex-plugin/plugin.json` · skill `codex/skills/<skill>/SKILL.md` (`$youtube:<skill>`), generate da `commands/*.md` con `scripts/codex/build_skills.py` · guida di traduzione `codex/references/codex-host.md` · hook `codex/hooks.json` · shim dei comandi `scripts/yt/bin/codex-shims.sh`. Guida per chi lo usa: `CODEX.md` nella radice della repo; regole per chi lo modifica: `CONTRIBUTING.md`, «Versione Codex».
 - Configurazione dell'operatore: `yt-config` e `~/.config/youtube-producer/config.yaml` (facoltativo: operatore, vault, `channels_dirs`, `brands_dirs`, `studio_dir`, `repo_path`, chiavi `learning_*`).
 - Stato runtime (non versionato, fuori da iCloud e dalla repo): `studio_dir` (cartelle di lavoro, cache, `data/yt.db`, `secrets/`).
 - Apprendimento (non versionato, per Mac e per canale): `studio_dir/data/` → tabelle in `yt.db`, `learned/<canale>.md` (playbook generato), `learned/<canale>.glossary.txt` e `.confusions.json` (glossario appreso), `thumb-golden/` (thumbnail pubblicate), `refs/` (riferimenti di nicchia, ≤ 30 giorni). Quello che vale per tutti arriva nella repo solo con una PR `learn/…` revisionata (`knowledge/13-learning-loop.md`).

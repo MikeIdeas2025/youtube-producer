@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Hook Lab"
+  short_description: "I primi 30 secondi: hook e cold open con rubrica"
+  default_prompt: "Usa $youtube:hook per 10 hook sul mio prossimo video."
+policy:
+  allow_implicit_invocation: false

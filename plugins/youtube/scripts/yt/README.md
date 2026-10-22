@@ -36,6 +36,16 @@ Knowledge e template del profilo canale: `docs/yt/` del plugin (vedi il suo READ
   `/youtube:setup` se il marcatore manca o i lock sono cambiati, più al massimo una riga sull'apprendimento quando c'è
   qualcosa di dovuto; muto altrimenti). Stampa un oggetto JSON: `systemMessage` per l'operatore e
   `hookSpecificOutput.additionalContext` per Claude.
+- **Codex** (`.codex-plugin/`, `codex/`; guida in `CODEX.md` nella radice della repo): Codex installa il plugin senza
+  symlink e senza `bin/` nel PATH. `bin/codex-shims.sh` crea in `<data_dir>/shims/` il lanciatore `.yt-shim` e un link
+  per ogni nome di `codex/toolkit-commands.txt` (lo lancia `install.sh --codex`; poi `--check`, `--print-path-line`,
+  `--add-path`, `--print-config`); prima degli shim vale la forma diretta `bin/_run <yt-comando> …`. Data dir:
+  `~/.codex/plugins/data/youtube-youtube-producer` (stessa regola della cache). Hook in `codex/hooks.json`:
+  `guard.sh --codex pre` (PreToolUse su Bash, apply_patch e strumenti MCP, acceso per sessione; ogni chiamata
+  rinfresca il marcatore che `yt-config` legge in `codex_guard`), `guard.sh --codex prompt` (UserPromptSubmit),
+  `session-hint.sh --codex` (SessionStart, con `$youtube:`). `--print-config` non mette mai la data dir tra le
+  cartelle scrivibili: venv, node, shim e thumbvision girano anche fuori dalla sandbox, e il guard (C1) ne blocca
+  le scritture dalla conversazione.
 - **Configurazione dell'operatore** (facoltativa): `~/.config/youtube-producer/config.yaml` con `operator`,
   `vault_path` (facoltativo), `channels_dirs` (profili canale, default `~/.config/youtube-producer/channels`),
   `brands_dirs` (brand, default `~/.config/youtube-producer/brands`), `studio_dir` (default `~/youtube-studio`),

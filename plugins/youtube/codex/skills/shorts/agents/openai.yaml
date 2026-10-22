@@ -1,0 +1,6 @@
+interface:
+  display_name: "YouTube Producer · Shorts"
+  short_description: "Shorts dal girato con gate G2, crop 9:16 e sottotitoli"
+  default_prompt: "Usa $youtube:shorts per proporre gli Shorts dell'episodio fino al gate G2."
+policy:
+  allow_implicit_invocation: false

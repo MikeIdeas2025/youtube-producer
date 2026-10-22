@@ -16,6 +16,8 @@
 #                    (3,8 MB, SHA256 fissato) in <data>/models/mediapipe; una volta installato resta anche nei rilanci
 #   --skip-system    non installa formule Homebrew né modelli: li verifica soltanto (riusa quelli già presenti)
 #   --force          ricrea venv, node_modules e thumbvision anche se aggiornati
+#   --codex          versione per OpenAI Codex: suggerimenti con $youtube:setup e, dopo il setup, i comandi yt-* in
+#                    <data>/shims (codex-shims.sh), più la riga PATH e il blocco per ~/.codex/config.toml da aggiungere
 #   -h, --help       questo aiuto
 #
 # Cosa fa (solo ciò che manca, mai sudo, mai curl|sh):
@@ -28,8 +30,9 @@
 #   6. Playwright in <data>/node e Remotion in <data>/remotion con npm ci dai package-lock del plugin
 #      (PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1: Playwright usa Google Chrome di sistema);
 #   7. thumbvision compilato con swiftc in <data>/bin/thumbvision (ripiego: il binario incluso nel plugin);
-#   8. facoltativi Senko, rembg e MediaPipe; 9. marcatore <data>/.setup-ok (commit, data, impronta dei lock) e riepilogo.
-# Non tocca ~/.claude fuori dalla data dir. Rilanciarlo è sicuro: salta ciò che è già a posto.
+#   8. facoltativi Senko, rembg e MediaPipe; 9. marcatore <data>/.setup-ok (commit, data, impronta dei lock) e riepilogo;
+#   10. solo con --codex: shim dei comandi yt-* in <data>/shims.
+# Non tocca ~/.claude (né ~/.codex) fuori dalla data dir. Rilanciarlo è sicuro: salta ciò che è già a posto.
 set -uo pipefail
 
 src="$0"
@@ -43,8 +46,8 @@ PLUGIN_ROOT="$(cd -P "$YT_HOME/../.." && pwd)"
 # shellcheck source=bin/_paths.sh
 . "$YT_HOME/bin/_paths.sh"
 
-YES=0; DATA_OPT=""; WITH_SENKO=0; WITH_REMBG=0; WITH_MP=0; SKIP_SYSTEM=0; FORCE=0
-usage() { sed -n '2,32p' "$src" | sed 's/^# \{0,1\}//'; }
+YES=0; DATA_OPT=""; WITH_SENKO=0; WITH_REMBG=0; WITH_MP=0; SKIP_SYSTEM=0; FORCE=0; CODEX=0
+usage() { sed -n '2,35p' "$src" | sed 's/^# \{0,1\}//'; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --yes|-y) YES=1 ;;
@@ -55,6 +58,7 @@ while [ $# -gt 0 ]; do
     --with-mediapipe) WITH_MP=1 ;;
     --skip-system) SKIP_SYSTEM=1 ;;
     --force) FORCE=1 ;;
+    --codex) CODEX=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "opzione sconosciuta: $1 (vedi --help)" >&2; exit 2 ;;
   esac
@@ -89,6 +93,8 @@ FFMPEG_BIN="/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg"
 LOCK_STAMP=".yt-lock-sha256"
 
 # ── Utilità ──────────────────────────────────────────────────────────────────
+SETUP_CMD="/youtube:setup"
+[ "$CODEX" = 1 ] && SETUP_CMD='$youtube:setup'
 say() { printf '%s\n' "$*"; }
 hr() { say "────────────────────────────────────────────────────────────────────────"; }
 mb() { awk -v b="$1" 'BEGIN { if (b >= 1e9) printf "%.1f GB", b / 1e9; else if (b >= 1e6) printf "%.0f MB", b / 1e6; else printf "%.0f KB", b / 1e3 }'; }
@@ -167,7 +173,7 @@ if [ -z "$BREW" ]; then
     hr
     say "Homebrew non è installato. Installalo TU dal Terminale seguendo le istruzioni ufficiali:"
     say "  https://brew.sh   (chiede la password di amministratore; questo script non lo esegue per te)"
-    say "Poi chiudi e riapri il Terminale e rilancia /youtube:setup."
+    say "Poi chiudi e riapri il Terminale e rilancia $SETUP_CMD."
     exit 1
   fi
 else
@@ -362,6 +368,14 @@ else
   status "MediaPipe (espressioni)" optional saltato "non installato: yt-portrait scan usa solo la geometria di Apple Vision (--with-mediapipe, ≈ 200 MB)"
 fi
 
+if [ "$CODEX" = 1 ]; then
+  if /bin/bash "$YT_HOME/bin/codex-shims.sh" --data "$DATA" --check >/dev/null 2>&1; then
+    status "comandi yt-* per Codex" should ok "$DATA/shims"
+  else
+    status "comandi yt-* per Codex" should "da fare" "shim in $DATA/shims (codex-shims.sh), dopo il setup"
+  fi
+fi
+
 print_status() {
   local i n="${#STATUS_NAMES[@]}"
   for ((i = 0; i < n; i++)); do
@@ -377,7 +391,7 @@ if [ "$YES" != 1 ]; then
     say "Niente da installare."
   else
     say "Da fare: $PLANNED voci · download e spazio stimati ≈ $(mb "$PLANNED_BYTES")."
-    say "Per procedere: $YT_HOME/install.sh --yes$( [ -n "$DATA_OPT" ] && printf ' --data %q' "$DATA_OPT")$( [ "$WITH_SENKO" = 1 ] && printf ' --with-senko')$( [ "$WITH_REMBG" = 1 ] && printf ' --with-rembg')$( [ "$WITH_MP" = 1 ] && printf ' --with-mediapipe')$( [ "$SKIP_SYSTEM" = 1 ] && printf ' --skip-system')"
+    say "Per procedere: $YT_HOME/install.sh --yes$( [ -n "$DATA_OPT" ] && printf ' --data %q' "$DATA_OPT")$( [ "$WITH_SENKO" = 1 ] && printf ' --with-senko')$( [ "$WITH_REMBG" = 1 ] && printf ' --with-rembg')$( [ "$WITH_MP" = 1 ] && printf ' --with-mediapipe')$( [ "$SKIP_SYSTEM" = 1 ] && printf ' --skip-system')$( [ "$CODEX" = 1 ] && printf ' --codex')"
   fi
   if [ "$MUST_FAIL" = 1 ]; then
     say "Attenzione: ci sono requisiti 'must' mancanti che questo script non installa (vedi sopra)."
@@ -393,7 +407,8 @@ status "macOS Apple Silicon" must ok "macOS $MACOS · $ARCH"
 # bit di esecuzione dei lanciatori del plugin (i comandi yt-* sono link a bin/_run): si possono perdere copiando la
 # cartella a mano o con un archivio. Solo chmod +x dove manca, nessun altro cambiamento ai file del plugin.
 NOEXEC=()
-for f in "$YT_HOME/bin/_run" "$YT_HOME/bin/guard.sh" "$YT_HOME/bin/session-hint.sh" "$YT_HOME/bin/thumbvision" "$YT_HOME/install.sh"; do
+for f in "$YT_HOME/bin/_run" "$YT_HOME/bin/guard.sh" "$YT_HOME/bin/session-hint.sh" "$YT_HOME/bin/thumbvision" "$YT_HOME/install.sh" \
+         "$YT_HOME/bin/codex-shims.sh"; do
   [ -f "$f" ] && [ ! -x "$f" ] && NOEXEC+=("$f")
 done
 if [ "${#NOEXEC[@]}" -gt 0 ]; then
@@ -632,8 +647,26 @@ else
     printf 'rembg=%s\n' "$(rembg_ok && echo si || echo no)"
     printf 'mediapipe=%s\n' "$(mp_ok && echo si || echo no)"
   } > "$DATA/.setup-ok.tmp" && mv -f "$DATA/.setup-ok.tmp" "$DATA/.setup-ok"
-  say "Setup completo: marcatore $DATA/.setup-ok (commit $COMMIT)."
+  if [ "$CODEX" = 1 ]; then
+    case "$YT_HOME" in */plugins/cache/*/scripts/yt) VLABEL="versione" ;; *) VLABEL="commit" ;; esac
+    say "Setup completo: marcatore $DATA/.setup-ok ($VLABEL $COMMIT)."
+  else
+    say "Setup completo: marcatore $DATA/.setup-ok (commit $COMMIT)."
+  fi
   RC=0
+fi
+# ── 10. Solo Codex: comandi yt-* (Codex installa il plugin senza symlink e senza bin/ nel PATH) ──
+if [ "$CODEX" = 1 ]; then
+  hr
+  if ! /bin/bash "$YT_HOME/bin/codex-shims.sh" --data "$DATA"; then
+    say "Comandi yt-* per Codex NON creati (sopra il motivo): rilancia $SETUP_CMD."
+    RC=1
+  fi
+  say "Cartelle che i comandi devono poter scrivere nella sandbox di Codex: se non l'hai già fatto, incolla tu"
+  say "questo blocco in fondo a ~/.codex/config.toml (open -e ~/.codex/config.toml), poi riavvia l'app o riapri la CLI."
+  say "Il plugin non cambia la configurazione di Codex:"
+  /bin/bash "$YT_HOME/bin/codex-shims.sh" --data "$DATA" --print-config | sed 's/^/  /'
+  hr
 fi
 say "Spazio occupato:"
 TOTAL_K=0
@@ -644,5 +677,10 @@ for p in "$DATA/venv" "$DATA/node" "$DATA/remotion" "$DATA/bin" "$DATA/models" "
   printf '  %10s  %s\n' "$(mb $((k * 1024)))" "$p"
 done
 printf '  %10s  totale\n' "$(mb $((TOTAL_K * 1024)))"
-say "Verifica completa dell'ambiente: yt-doctor"
+if [ "$CODEX" = 1 ]; then
+  say "Prossimo passo: torna nella conversazione di Codex e scrivi \$youtube:setup. Riprende da qui: riga PATH,"
+  say "cartelle scrivibili, extra e domande di configurazione, poi il doctor e il primo canale."
+else
+  say "Verifica completa dell'ambiente: yt-doctor"
+fi
 exit "$RC"

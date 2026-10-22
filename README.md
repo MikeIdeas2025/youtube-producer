@@ -1,13 +1,25 @@
-# YouTube Producer — plugin YouTube per Claude Code
+# YouTube Producer — plugin YouTube per Claude Code e Codex
 
-**YouTube Producer** è un agente per Claude Code che lavora come producer e strategist di un canale YouTube, sul tuo Mac. Da un episodio registrato ricava il video montato con la timeline per Final Cut o Resolve, i sottotitoli italiani, i capitoli, gli Shorts, tre thumbnail con il controllo di leggibilità e un piano di test. Legge anche i numeri del canale, fa audit e strategia, scrive la traccia dell'intervista e i primi 30 secondi.
+**YouTube Producer** è un agente per Claude Code e Codex che lavora come producer e strategist di un canale YouTube, sul tuo Mac. Da un episodio registrato ricava il video montato con la timeline per Final Cut o Resolve, i sottotitoli italiani, i capitoli, gli Shorts, tre thumbnail con il controllo di leggibilità e un piano di test. Legge anche i numeri del canale, fa audit e strategia, scrive la traccia dell'intervista e i primi 30 secondi.
 
 Prima delle scelte importanti si ferma e aspetta te: sono i **gate** G1 (prima di tagliare) e G2 (prima dei render finali). **Non pubblica mai nulla**: caricare il video, impostare le thumbnail e lanciare un test A/B restano compiti tuoi, in YouTube Studio (G3).
 
-La repo è privata. È un marketplace di Claude Code (`youtube-producer`) con un solo plugin: `youtube`. Nel plugin non c'è nessun canale precaricato: alla prima configurazione crei il profilo del tuo.
+La repo è privata. È un marketplace di Claude Code e di Codex (`youtube-producer`) con un solo plugin: `youtube`. Nel plugin non c'è nessun canale precaricato: alla prima configurazione crei il profilo del tuo.
+
+## Usarlo con Codex
+
+Il plugin funziona anche con **Codex** di OpenAI (l'app ChatGPT per Mac o la Codex CLI), dalla stessa repo e con lo stesso toolkit locale. Le skill si chiamano con `$` al posto di `/` e alcune cose funzionano in modo diverso: installazione, permessi e differenze sono in **[CODEX.md](CODEX.md)**. Il resto di questo README vale per Claude Code.
+
+| | Come lo chiami | Chi lavora | Guard (controllo sui comandi) | Guida |
+|---|---|---|---|---|
+| **Claude Code** | `/youtube:producer …` | un agente separato, con strumenti e memoria propri | hook del plugin, solo per l'agente; se non parte, l'agente non può usare la shell | questo README |
+| **Codex** (app ChatGPT o CLI) | `$youtube:producer …`, anche per rispondere ai gate | la conversazione stessa: in Codex i plugin non portano agenti | hook del plugin da approvare una volta, vale per tutta la conversazione; se non parte, le skill non lanciano comandi su media, dati e vault | [CODEX.md](CODEX.md) |
+
+Gate G1 e G2, pubblicazione sempre a mano, file in locale, profili, brand e cartelle di lavoro sono gli stessi. Se usi tutti e due sullo stesso Mac, condividono configurazione, lavoro e dati appresi.
 
 ## Indice
 
+- [Usarlo con Codex](#usarlo-con-codex)
 - [Cosa fa](#cosa-fa)
 - [Come funziona](#come-funziona)
 - [Requisiti](#requisiti)
@@ -178,7 +190,7 @@ Per provarlo prima di usarlo su un episodio vero. Ti serve una clip di 3–5 min
    ```
 
    Si ferma al G2 con i candidati e le anteprime del taglio 9:16. Rispondi per esempio «1 e 3, il 2 no» ([Come rispondere a un gate](#come-rispondere-a-un-gate)) e aspetta i render in `~/youtube-studio/work/prova/…/shorts/`.
-5. **Pulisci.** Quando hai finito, cancella la cartella di prova (`~/youtube-studio/work/prova/`) e il profilo (`~/.config/youtube-producer/channels/prova.md` e `prova.glossary.txt`), oppure tienili per altre prove.
+5. **Pulisci.** Quando hai finito, cancella la cartella di prova (`~/youtube-studio/work/prova/`), il profilo (`~/.config/youtube-producer/channels/prova.md` e `prova.glossary.txt`) e il brand (`~/.config/youtube-producer/brands/prova/`), oppure tienili per altre prove.
 
 Ogni richiesta è una sessione lunga per il tuo piano Claude: l'agente lavora con molto ragionamento e legge parecchio. Un episodio intero consuma molto più di una clip di prova: parti dalle clip corte.
 
@@ -274,7 +286,7 @@ repo_path: "~/youtube-producer"          # solo se proponi miglioramenti al plug
 ```
 
 - **Vault Obsidian.** Se imposti `vault_path` e nel profilo del canale indichi una cartella in `vault.deliverables`, le note di quel canale vanno lì (sempre file nuovi, mai sovrascritti). Altrimenti restano in `deliver/notes/`.
-- **Vedere la configurazione effettiva.** In Claude Code chiedi «mostrami yt-config», oppure scrivi `!yt-config` (JSON completo) o `!yt-config --get studio_dir` (un solo valore). Il `!` davanti lancia il comando dalla sessione: i comandi `yt-*` esistono solo dentro Claude Code, non nel Terminale.
+- **Vedere la configurazione effettiva.** In Claude Code chiedi «mostrami yt-config», oppure scrivi `!yt-config` (JSON completo) o `!yt-config --get studio_dir` (un solo valore). Il `!` davanti lancia il comando dalla sessione: i comandi `yt-*` esistono solo dentro Claude Code, non nel Terminale (in Codex ci sono anche nel Terminale, con la riga PATH: [CODEX.md](CODEX.md)).
 - **Override per una sessione**: `YT_STUDIO`, `YT_VAULT` (vuota = nessun vault), `YT_CHANNELS_DIRS` e `YT_BRANDS_DIRS` (percorsi separati da «:»), `YT_DATA`, `YT_OPERATOR`, `YT_REPO_PATH`, `YT_CONFIG` (un altro file di configurazione).
 
 **Dove vive cosa.**
@@ -377,25 +389,29 @@ Il plugin è in prova: ogni segnalazione serve. Apri una issue sulla repo, la le
 gh issue create --repo MikeIdeas2025/youtube-producer
 ```
 
-oppure da https://github.com/MikeIdeas2025/youtube-producer/issues. Scrivi cosa hai chiesto (il comando o la frase), cosa ti aspettavi, cosa è successo, la versione di Claude Code (`claude --version`) e, se c'entra l'ambiente, l'output di `/youtube:setup doctor`. Non allegare mai video, audio, trascrizioni di ospiti, token o chiavi.
+oppure da https://github.com/MikeIdeas2025/youtube-producer/issues. Scrivi cosa hai chiesto (il comando o la frase), cosa ti aspettavi, cosa è successo, la versione di Claude Code (`claude --version`) o di Codex (`codex --version`, o la versione dell'app) e, se c'entra l'ambiente, l'output di `/youtube:setup doctor` (in Codex `$youtube:setup doctor`). Non allegare mai video, audio, trascrizioni di ospiti, token o chiavi.
 
 Vuoi proporre una modifica? Le regole sono in `CONTRIBUTING.md`: lavora sempre su un branch e apri una pull request, mai un push diretto su `main`.
 
 ## Struttura della repo
 
 ```
-.claude-plugin/marketplace.json        marketplace «youtube-producer» (un plugin: youtube)
-README.md · CONTRIBUTING.md
+.claude-plugin/marketplace.json        marketplace «youtube-producer» per Claude Code (un plugin: youtube)
+.agents/plugins/marketplace.json       lo stesso marketplace per Codex
+README.md · CODEX.md · CONTRIBUTING.md
 plugins/youtube/                       il plugin (radice = ${CLAUDE_PLUGIN_ROOT})
   .claude-plugin/plugin.json           nome «youtube», senza versione (la versione è il commit)
+  .codex-plugin/plugin.json            manifest per Codex: nome «youtube», versione (serve alla cache di Codex), skill e hook in codex/
   agents/producer.md                   l'agente (youtube:producer)
   agents/thumb-cold-reader.md          il lettore a freddo delle thumbnail
   commands/producer.md                 /youtube:producer, il punto d'ingresso
   commands/<skill>.md                  le 12 skill: /youtube:setup, /youtube:edit, /youtube:shorts…, /youtube:learn
-  hooks/hooks.json                     guard sul Bash dell'agente; avviso di setup all'avvio
+  hooks/hooks.json                     guard sul Bash dell'agente; avviso di setup all'avvio (Claude Code)
   bin/                                 comandi yt-* nel PATH di Claude Code
+  codex/                               solo per Codex: skills/ (generate da commands/), hooks.json, references/codex-host.md
   evals/                               valutazioni delle skill
-  scripts/yt/                          toolkit: install.sh, lib/ (Python), node/ (template thumbnail), remotion/, swift/, assets/ (font, brand demo, preset sottotitoli)
+  scripts/yt/                          toolkit: install.sh, lib/ (Python), node/ (template thumbnail), remotion/, swift/, assets/ (font, brand demo, preset sottotitoli); bin/codex-shims.sh crea i comandi yt-* per Codex
+  scripts/codex/build_skills.py        genera codex/skills/ da commands/ (CONTRIBUTING.md, «Versione Codex»)
   docs/yt/
     DESIGN.md                          design doc
     knowledge/                         knowledge pack 01–13 (metodo in inglese, deliverable in italiano)
